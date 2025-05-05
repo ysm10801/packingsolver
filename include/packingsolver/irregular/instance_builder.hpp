@@ -121,6 +121,16 @@ public:
      */
     void set_item_types_unweighted();
 
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+    void set_hole_hints(const std::vector<std::pair<double, double>>& hole_hints) {
+        hole_hints_ = hole_hints;
+    }
+    
+    const std::vector<std::pair<double, double>>& hole_hints() const {
+        return hole_hints_;
+    }
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+
     /*
      * Build
      */
@@ -143,6 +153,10 @@ private:
     /*
      * Private attributes
      */
+
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+    std::vector<std::pair<double, double>> hole_hints_;
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
 
     /** Instance. */
     Instance instance_;

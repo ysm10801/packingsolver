@@ -278,6 +278,18 @@ public:
     /** Return true iff all items have infinite copies. */
     inline bool unbounded_knapsack() const { return all_item_types_infinite_copies_; }
 
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+    // Get hole hints for insertion_aware_scoring
+    const std::vector<std::pair<double, double>>& hole_hints() const { return hole_hints_; }
+
+    void print_hole_hints() const {
+        std::cout << "Hole Hints: " << std::endl;
+        for (const auto& hint : hole_hints_) {
+            std::cout << "  (" << hint.first << ", " << hint.second << ")" << std::endl;
+        }
+    }
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+
     /*
      * Export
      */
@@ -363,6 +375,11 @@ private:
 
     /** Largest item copies. */
     ItemPos largest_item_copies_ = 0;
+    
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+    // hole hint for insertion_aware_scoring
+    std::vector<std::pair<double, double>> hole_hints_;
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
 
     /** True iff all item types have an infinite number of copies. */
     bool all_item_types_infinite_copies_ = false;

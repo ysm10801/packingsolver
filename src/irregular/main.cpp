@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
         instance_builder.set_bin_types_unweighted();
 
     Instance instance = instance_builder.build();
+    instance.print_hole_hints();
 
     //for (ItemTypeId item_type_id = 0;
     //        item_type_id < instance.number_of_item_types();

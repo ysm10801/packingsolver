@@ -311,6 +311,19 @@ void InstanceBuilder::read(
         set_objective(objective);
     }
 
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+    if (j.contains("hole_hints")) {
+        const auto& hint_array = j["hole_hints"];
+        for (const auto& hint : hint_array) {
+            if (hint.is_array() && hint.size() == 2) {
+                double x = hint[0].get<double>();
+                double y = hint[1].get<double>();
+                hole_hints_.emplace_back(x, y);
+            }
+        }
+    }
+    ////////////////////////////////////// Read hole hints. //////////////////////////////////////
+
     // Read parameters.
     if (j.contains("parameters")) {
         auto json_parameters = j["parameters"];
@@ -512,6 +525,8 @@ Instance InstanceBuilder::build()
                 "the instance has objective OpenDimensionY and contains " + std::to_string(instance_.number_of_bins()) + " bins; "
                 "an instance with objective OpenDimensionY must contain exactly one bin.");
     }
+
+    instance_.hole_hints_ = hole_hints_;
 
     return std::move(instance_);
 }
