@@ -235,6 +235,11 @@ public:
 
         /** Profit. */
         Profit profit = 0;
+        
+        //////////////////////////// Insertion-aware scoring ////////////////////////////
+        double insertion_score_sum = 0.0;
+        int insertion_score_count = 0;
+        //////////////////////////// Insertion-aware scoring ////////////////////////////
 
         /** Insertions. */
         mutable std::vector<Insertion> children_insertions;

@@ -282,6 +282,10 @@ public:
     // Get hole hints for insertion_aware_scoring
     const std::vector<std::pair<double, double>>& hole_hints() const { return hole_hints_; }
 
+    void set_hole_hints(const std::vector<std::pair<double, double>>& hints) {
+        hole_hints_ = hints;
+    }
+
     void print_hole_hints() const {
         std::cout << "Hole Hints: " << std::endl;
         for (const auto& hint : hole_hints_) {

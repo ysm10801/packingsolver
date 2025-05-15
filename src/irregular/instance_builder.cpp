@@ -526,7 +526,8 @@ Instance InstanceBuilder::build()
                 "an instance with objective OpenDimensionY must contain exactly one bin.");
     }
 
-    instance_.hole_hints_ = hole_hints_;
+    // instance_.hole_hints_ = hole_hints_;
+    instance_.set_hole_hints(hole_hints_);
 
     return std::move(instance_);
 }

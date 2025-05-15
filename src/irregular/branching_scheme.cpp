@@ -1153,6 +1153,54 @@ BranchingScheme::Node BranchingScheme::child_tmp(
             trapezoid.shift_top(insertion.y);
             //std::cout << "shifted " << trapezoid << std::endl;
 
+            ///////////////////////// insertion-aware scoring /////////////////////////
+            if (item_shape_pos == insertion.item_shape_pos
+                && item_shape_trapezoid_pos == insertion.item_shape_trapezoid_pos
+                && !trapezoid.left_side_increasing_not_vertical()) {
+
+                const ItemType& item_type = instance_orig_.item_type(trapezoid_set.item_type_id);
+                const ItemShape& item_shape = item_type.shapes[0];
+                bool is_outline = (item_shape.shape.elements.size() > 10);
+            
+                // bool is_outline = item_type.shapes[0].vertices().size() > 10;
+                
+                const auto& hole_hints = instance().hole_hints();
+                std::cout << "Hole hints size: " << instance().hole_hints().size() << std::endl;
+                if (!is_outline && !hole_hints.empty()) {
+                    LengthDbl y_bottom = trapezoid.y_bottom();
+                    LengthDbl x_left = trapezoid.x_left(y_bottom);
+                    LengthDbl x_right = trapezoid.x_right(y_bottom);
+                    LengthDbl x_mid = (x_left + x_right) / 2.0;
+            
+                    double min_dist = std::numeric_limits<double>::max();
+                    for (const auto& hole : instance().hole_hints()) {
+                        double dx = hole.first - x_mid;
+                        double dy = hole.second - y_bottom;
+                        double dist = std::sqrt(dx * dx + dy * dy);
+                        if (dist < min_dist)
+                            min_dist = dist;
+                    }
+                    node.insertion_score_sum += -min_dist;
+                    node.insertion_score_count += 1;
+
+                    std::cout << "Insertion score updated: sum = "
+                        << node.insertion_score_sum << ", count = "
+                        << node.insertion_score_count << std::endl;
+                } else {
+                    // fallback
+                    node.insertion_score_sum += 0.0;
+                }
+            
+                node.uncovered_trapezoids = add_trapezoid_to_skyline(
+                    node.uncovered_trapezoids,
+                    trapezoid_set.item_type_id,
+                    item_shape_pos,
+                    item_shape_trapezoid_pos,
+                    trapezoid);
+                continue;
+            }
+            ///////////////////////// insertion-aware scoring /////////////////////////
+
             node.all_trapezoids_skyline = add_trapezoid_to_skyline(
                     node.all_trapezoids_skyline,
                     trapezoid_set.item_type_id,
@@ -2285,7 +2333,27 @@ bool BranchingScheme::better(
             return false;
         if (!leaf(node_2))
             return true;
-        return node_2->ye_max > node_1->ye_max;
+
+        double score1 = node_1->ye_max;
+        double score2 = node_2->ye_max;
+    
+        // 평균 insertion score 계산
+        double insertion_avg_1 = (node_1->insertion_score_count > 0)
+            ? (node_1->insertion_score_sum / node_1->insertion_score_count)
+            : 0.0;
+        double insertion_avg_2 = (node_2->insertion_score_count > 0)
+            ? (node_2->insertion_score_sum / node_2->insertion_score_count)
+            : 0.0;
+    
+        // 혼합 점수 계산 (가중치는 필요에 따라 조정 가능)
+        double alpha = 1.0;   // ye_max 쪽 가중치
+        double beta = 1.0;    // insertion score 쪽 가중치
+    
+        double final_score_1 = -alpha * score1 + beta * insertion_avg_1;
+        double final_score_2 = -alpha * score2 + beta * insertion_avg_2;
+    
+        return final_score_2 > final_score_1; // 더 높은 총점이 우수한 노드
+        // return node_2->ye_max > node_1->ye_max;
     } case Objective::Knapsack: {
         return node_2->profit < node_1->profit;
     } default: {
