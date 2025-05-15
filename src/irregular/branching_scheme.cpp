@@ -1178,14 +1178,15 @@ BranchingScheme::Node BranchingScheme::child_tmp(
             
                     double min_dist = std::numeric_limits<double>::max();
                     for (const auto& hole : instance_orig_.hole_hints()) {
-                        double dx = hole.first - x_mid;
+                        double dx = hole.first - x_right;
                         double dy = hole.second - y_bottom;
                         double dist = std::sqrt(dx * dx + dy * dy);
-                        std::cout << "   hole=("<<hole.first<<","<<hole.second<<")"
-                                    << " x_mid="<<x_mid<<" y_bot="<<y_bottom
-                                    << " dist="<<dist<<"\n";
                         min_dist = std::min(min_dist, dist);
-                        std::cout << " -> min_dist = " << min_dist << "\n";
+                        std::cout
+                            << "hole=(" << hole.first << "," << hole.second << ") "
+                            << "x_mid=" << x_right << " y_bot=" << y_bottom << " "
+                            << "dist=" << dist << " min_dist=" << min_dist
+                            << std::endl;
                         // if (dist < min_dist)
                         //     min_dist = dist;
                     }
