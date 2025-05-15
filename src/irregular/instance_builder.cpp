@@ -315,11 +315,11 @@ void InstanceBuilder::read(
     if (j.contains("hole_hints")) {
         const auto& hint_array = j["hole_hints"];
         for (const auto& hint : hint_array) {
-            if (hint.is_array() && hint.size() == 2) {
+            // if (hint.is_array() && hint.size() == 2) {
                 double x = hint[0].get<double>();
                 double y = hint[1].get<double>();
                 hole_hints_.emplace_back(x, y);
-            }
+            // }
         }
     }
     ////////////////////////////////////// Read hole hints. //////////////////////////////////////

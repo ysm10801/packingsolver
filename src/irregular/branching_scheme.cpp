@@ -1071,6 +1071,9 @@ BranchingScheme::Node BranchingScheme::child_tmp(
 
     node.parent = pparent;
 
+    node.insertion_score_sum   = 0.0;  // 복사 후 재설정
+    node.insertion_score_count = 0;
+
     node.trapezoid_set_id = insertion.trapezoid_set_id;
     node.x = insertion.x;
     node.y = insertion.y;
@@ -1164,8 +1167,9 @@ BranchingScheme::Node BranchingScheme::child_tmp(
             
                 // bool is_outline = item_type.shapes[0].vertices().size() > 10;
                 
-                const auto& hole_hints = instance().hole_hints();
-                std::cout << "Hole hints size: " << instance().hole_hints().size() << std::endl;
+                // const auto& hole_hints = instance().hole_hints();
+                const auto& hole_hints = instance_orig_.hole_hints();
+                // std::cout << "Hole hints size: " << instance().hole_hints().size() << std::endl;
                 if (!is_outline && !hole_hints.empty()) {
                     LengthDbl y_bottom = trapezoid.y_bottom();
                     LengthDbl x_left = trapezoid.x_left(y_bottom);
@@ -1173,16 +1177,20 @@ BranchingScheme::Node BranchingScheme::child_tmp(
                     LengthDbl x_mid = (x_left + x_right) / 2.0;
             
                     double min_dist = std::numeric_limits<double>::max();
-                    for (const auto& hole : instance().hole_hints()) {
+                    for (const auto& hole : instance_orig_.hole_hints()) {
                         double dx = hole.first - x_mid;
                         double dy = hole.second - y_bottom;
                         double dist = std::sqrt(dx * dx + dy * dy);
-                        if (dist < min_dist)
-                            min_dist = dist;
+                        std::cout << "   hole=("<<hole.first<<","<<hole.second<<")"
+                                    << " x_mid="<<x_mid<<" y_bot="<<y_bottom
+                                    << " dist="<<dist<<"\n";
+                        min_dist = std::min(min_dist, dist);
+                        std::cout << " -> min_dist = " << min_dist << "\n";
+                        // if (dist < min_dist)
+                        //     min_dist = dist;
                     }
                     node.insertion_score_sum += -min_dist;
                     node.insertion_score_count += 1;
-
                     std::cout << "Insertion score updated: sum = "
                         << node.insertion_score_sum << ", count = "
                         << node.insertion_score_count << std::endl;
