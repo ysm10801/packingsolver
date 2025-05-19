@@ -73,6 +73,7 @@ BranchingScheme::BranchingScheme(
             parameters.maximum_approximation_ratio)),
     parameters_(parameters)
 {
+    instance_approx_.set_hole_hints(instance_orig.hole_hints());
     bool write_shapes = false;
 
     for (Direction direction: {
@@ -1157,57 +1158,58 @@ BranchingScheme::Node BranchingScheme::child_tmp(
             //std::cout << "shifted " << trapezoid << std::endl;
 
             ///////////////////////// insertion-aware scoring /////////////////////////
-            if (item_shape_pos == insertion.item_shape_pos
-                && item_shape_trapezoid_pos == insertion.item_shape_trapezoid_pos
-                && !trapezoid.left_side_increasing_not_vertical()) {
+            // double min_dist = std::numeric_limits<double>::max();
 
-                const ItemType& item_type = instance_orig_.item_type(trapezoid_set.item_type_id);
-                const ItemShape& item_shape = item_type.shapes[0];
-                bool is_outline = (item_shape.shape.elements.size() > 10);
-            
-                // bool is_outline = item_type.shapes[0].vertices().size() > 10;
+            // if (item_shape_pos == insertion.item_shape_pos
+            //     && item_shape_trapezoid_pos == insertion.item_shape_trapezoid_pos
+            //     && !trapezoid.left_side_increasing_not_vertical()) {
+
+            //     const ItemType& item_type = instance_orig_.item_type(trapezoid_set.item_type_id);
+            //     const ItemShape& item_shape = item_type.shapes[0];
+            //     bool is_outline = (item_shape.shape.elements.size() > 10);
+            //     // bool is_outline = item_type.shapes[0].vertices().size() > 10;
                 
-                // const auto& hole_hints = instance().hole_hints();
-                const auto& hole_hints = instance_orig_.hole_hints();
-                // std::cout << "Hole hints size: " << instance().hole_hints().size() << std::endl;
-                if (!is_outline && !hole_hints.empty()) {
-                    LengthDbl y_bottom = trapezoid.y_bottom();
-                    LengthDbl x_left = trapezoid.x_left(y_bottom);
-                    LengthDbl x_right = trapezoid.x_right(y_bottom);
-                    LengthDbl x_mid = (x_left + x_right) / 2.0;
+            //     // const auto& hole_hints = instance().hole_hints();
+            //     const auto& hole_hints = instance_orig_.hole_hints();
+            //     // std::cout << "Hole hints size: " << instance().hole_hints().size() << std::endl;
+            //     if (!is_outline && !hole_hints.empty()) {
+            //         LengthDbl y_bottom = trapezoid.y_bottom();
+            //         LengthDbl x_left = trapezoid.x_left(y_bottom);
+            //         LengthDbl x_right = trapezoid.x_right(y_bottom);
+            //         LengthDbl x_mid = (x_left + x_right) / 2.0;
             
-                    double min_dist = std::numeric_limits<double>::max();
-                    for (const auto& hole : instance_orig_.hole_hints()) {
-                        double dx = hole.first - x_right;
-                        double dy = hole.second - y_bottom;
-                        double dist = std::sqrt(dx * dx + dy * dy);
-                        min_dist = std::min(min_dist, dist);
-                        std::cout
-                            << "hole=(" << hole.first << "," << hole.second << ") "
-                            << "x_mid=" << x_right << " y_bot=" << y_bottom << " "
-                            << "dist=" << dist << " min_dist=" << min_dist
-                            << std::endl;
-                        // if (dist < min_dist)
-                        //     min_dist = dist;
-                    }
-                    node.insertion_score_sum += -min_dist;
-                    node.insertion_score_count += 1;
-                    std::cout << "Insertion score updated: sum = "
-                        << node.insertion_score_sum << ", count = "
-                        << node.insertion_score_count << std::endl;
-                } else {
-                    // fallback
-                    node.insertion_score_sum += 0.0;
-                }
+            //         for (const auto& hole : instance_orig_.hole_hints()) {
+            //             double dx = hole.first - x_right;
+            //             double dy = hole.second - y_bottom;
+            //             double dist = std::sqrt(dx * dx + dy * dy);
+            //             min_dist = std::min(min_dist, dist);
+            //             // std::cout << "hole=(" << hole.first << "," << hole.second << ") "
+            //             //     << "x_mid=" << x_right << " y_bot=" << y_bottom << " "
+            //             //     << "dist=" << dist << " min_dist=" << min_dist
+            //             //     << std::endl;
+            //             // if (dist < min_dist)
+            //             //     min_dist = dist;
+            //         }
+
+            //     } else {
+            //         // fallback
+            //         node.insertion_score_sum += 0.0;
+            //     }
+
+            //     node.insertion_score_sum += -min_dist;
+            //     node.insertion_score_count += 1;
+            //     std::cout << "Insertion score updated: sum = "
+            //         << node.insertion_score_sum << ", count = "
+            //         << node.insertion_score_count << std::endl;
             
-                node.uncovered_trapezoids = add_trapezoid_to_skyline(
-                    node.uncovered_trapezoids,
-                    trapezoid_set.item_type_id,
-                    item_shape_pos,
-                    item_shape_trapezoid_pos,
-                    trapezoid);
-                continue;
-            }
+            //     node.uncovered_trapezoids = add_trapezoid_to_skyline(
+            //         node.uncovered_trapezoids,
+            //         trapezoid_set.item_type_id,
+            //         item_shape_pos,
+            //         item_shape_trapezoid_pos,
+            //         trapezoid);
+            //     continue;
+            // }
             ///////////////////////// insertion-aware scoring /////////////////////////
 
             node.all_trapezoids_skyline = add_trapezoid_to_skyline(
@@ -1273,6 +1275,34 @@ BranchingScheme::Node BranchingScheme::child_tmp(
             node.extra_trapezoids.push_back(extra_trapezoid);
         }
     }
+
+    // =========== item-level insertion-aware scoring ===========
+    if (parent.number_of_items >= 1){
+        const auto& all_traps = trapezoid_set.shapes[insertion.item_shape_pos];
+        double min_x =  std::numeric_limits<double>::infinity();
+        double max_x = -std::numeric_limits<double>::infinity();
+        double min_y =  std::numeric_limits<double>::infinity();
+        for (auto& t : all_traps) {
+          double yb = t.y_bottom();
+          min_x = std::min(min_x, t.x_left(yb));
+          max_x = std::max(max_x, t.x_right(yb));
+          min_y = std::min(min_y, yb);
+        }
+
+        double rep_x = insertion.x + (max_x + min_x) * 0.5;
+        double rep_y = insertion.y + min_y;
+        double min_dist = std::numeric_limits<double>::infinity();
+        for (auto& hole : instance_orig_.hole_hints()) {
+          double d = std::hypot(hole.first - rep_x, hole.second - rep_y);
+          min_dist = std::min(min_dist, d);
+        }
+        node.insertion_score_sum   += -min_dist;
+        node.insertion_score_count +=  1;
+        std::cout << "[ItemScore] rep=("
+                  << rep_x << "," << rep_y
+                  << ") min_dist=" << min_dist << "\n";
+    }
+    // =========== item-level insertion-aware scoring ===========
 
     // Update extra rectangles.
     if (insertion.new_bin_direction == Direction::Any) {  // Same bin
@@ -2356,7 +2386,7 @@ bool BranchingScheme::better(
     
         // 혼합 점수 계산 (가중치는 필요에 따라 조정 가능)
         double alpha = 1.0;   // ye_max 쪽 가중치
-        double beta = 1.0;    // insertion score 쪽 가중치
+        double beta = 100.0;    // insertion score 쪽 가중치
     
         double final_score_1 = -alpha * score1 + beta * insertion_avg_1;
         double final_score_2 = -alpha * score2 + beta * insertion_avg_2;

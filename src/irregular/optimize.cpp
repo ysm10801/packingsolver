@@ -89,7 +89,7 @@ void optimize_tree_search(
     } else if (instance.objective() == Objective::OpenDimensionY) {
         directions = {
             BranchingScheme::Direction::BottomToTopThenLeftToRight,
-            BranchingScheme::Direction::BottomToTopThenRightToLeft,
+            // BranchingScheme::Direction::BottomToTopThenRightToLeft,
         };
     } else if (instance.number_of_bin_types() == 1) {
         if (instance.objective() == Objective::BinPackingWithLeftovers) {
