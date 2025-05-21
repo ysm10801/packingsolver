@@ -1289,7 +1289,7 @@ BranchingScheme::Node BranchingScheme::child_tmp(
           min_y = std::min(min_y, yb);
         }
 
-        double rep_x = insertion.x + (max_x + min_x) * 0.5;
+        double rep_x = insertion.x + max_x;
         double rep_y = insertion.y + min_y;
         double min_dist = std::numeric_limits<double>::infinity();
         for (auto& hole : instance_orig_.hole_hints()) {
@@ -2386,7 +2386,7 @@ bool BranchingScheme::better(
     
         // 혼합 점수 계산 (가중치는 필요에 따라 조정 가능)
         double alpha = 1.0;   // ye_max 쪽 가중치
-        double beta = 100.0;    // insertion score 쪽 가중치
+        double beta = 1000.0;    // insertion score 쪽 가중치
     
         double final_score_1 = -alpha * score1 + beta * insertion_avg_1;
         double final_score_2 = -alpha * score2 + beta * insertion_avg_2;
