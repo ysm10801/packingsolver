@@ -5,6 +5,8 @@
 #include "shape/convex_hull.hpp"
 #include "shape/extract_borders.hpp"
 #include "shape/trapezoidation.hpp"
+#include "shape/extract_borders.hpp"   // trapezoid 집합 → 외곽선 폴리곤 변환
+#include <cmath>
 
 #include <iostream>
 
@@ -1072,8 +1074,8 @@ BranchingScheme::Node BranchingScheme::child_tmp(
 
     node.parent = pparent;
 
-    node.insertion_score_sum   = 0.0;  // 복사 후 재설정
-    node.insertion_score_count = 0;
+    node.insertion_score_sum   = parent.insertion_score_sum;  // 복사 후 재설정
+    node.insertion_score_count = parent.insertion_score_count;
 
     node.trapezoid_set_id = insertion.trapezoid_set_id;
     node.x = insertion.x;
@@ -1157,61 +1159,6 @@ BranchingScheme::Node BranchingScheme::child_tmp(
             trapezoid.shift_top(insertion.y);
             //std::cout << "shifted " << trapezoid << std::endl;
 
-            ///////////////////////// insertion-aware scoring /////////////////////////
-            // double min_dist = std::numeric_limits<double>::max();
-
-            // if (item_shape_pos == insertion.item_shape_pos
-            //     && item_shape_trapezoid_pos == insertion.item_shape_trapezoid_pos
-            //     && !trapezoid.left_side_increasing_not_vertical()) {
-
-            //     const ItemType& item_type = instance_orig_.item_type(trapezoid_set.item_type_id);
-            //     const ItemShape& item_shape = item_type.shapes[0];
-            //     bool is_outline = (item_shape.shape.elements.size() > 10);
-            //     // bool is_outline = item_type.shapes[0].vertices().size() > 10;
-                
-            //     // const auto& hole_hints = instance().hole_hints();
-            //     const auto& hole_hints = instance_orig_.hole_hints();
-            //     // std::cout << "Hole hints size: " << instance().hole_hints().size() << std::endl;
-            //     if (!is_outline && !hole_hints.empty()) {
-            //         LengthDbl y_bottom = trapezoid.y_bottom();
-            //         LengthDbl x_left = trapezoid.x_left(y_bottom);
-            //         LengthDbl x_right = trapezoid.x_right(y_bottom);
-            //         LengthDbl x_mid = (x_left + x_right) / 2.0;
-            
-            //         for (const auto& hole : instance_orig_.hole_hints()) {
-            //             double dx = hole.first - x_right;
-            //             double dy = hole.second - y_bottom;
-            //             double dist = std::sqrt(dx * dx + dy * dy);
-            //             min_dist = std::min(min_dist, dist);
-            //             // std::cout << "hole=(" << hole.first << "," << hole.second << ") "
-            //             //     << "x_mid=" << x_right << " y_bot=" << y_bottom << " "
-            //             //     << "dist=" << dist << " min_dist=" << min_dist
-            //             //     << std::endl;
-            //             // if (dist < min_dist)
-            //             //     min_dist = dist;
-            //         }
-
-            //     } else {
-            //         // fallback
-            //         node.insertion_score_sum += 0.0;
-            //     }
-
-            //     node.insertion_score_sum += -min_dist;
-            //     node.insertion_score_count += 1;
-            //     std::cout << "Insertion score updated: sum = "
-            //         << node.insertion_score_sum << ", count = "
-            //         << node.insertion_score_count << std::endl;
-            
-            //     node.uncovered_trapezoids = add_trapezoid_to_skyline(
-            //         node.uncovered_trapezoids,
-            //         trapezoid_set.item_type_id,
-            //         item_shape_pos,
-            //         item_shape_trapezoid_pos,
-            //         trapezoid);
-            //     continue;
-            // }
-            ///////////////////////// insertion-aware scoring /////////////////////////
-
             node.all_trapezoids_skyline = add_trapezoid_to_skyline(
                     node.all_trapezoids_skyline,
                     trapezoid_set.item_type_id,
@@ -1277,20 +1224,30 @@ BranchingScheme::Node BranchingScheme::child_tmp(
     }
 
     // =========== item-level insertion-aware scoring ===========
-    if (parent.number_of_items >= 1){
-        const auto& all_traps = trapezoid_set.shapes[insertion.item_shape_pos];
-        double min_x =  std::numeric_limits<double>::infinity();
-        double max_x = -std::numeric_limits<double>::infinity();
-        double min_y =  std::numeric_limits<double>::infinity();
-        for (auto& t : all_traps) {
-          double yb = t.y_bottom();
-          min_x = std::min(min_x, t.x_left(yb));
-          max_x = std::max(max_x, t.x_right(yb));
-          min_y = std::min(min_y, yb);
+    if (parent.number_of_items == 1){
+
+        // ★ trapezoid 모음에서 바운딩박스(minX, maxX, minY) 계산
+        const auto& traps = trapezoid_set.shapes[insertion.item_shape_pos];
+        double bb_min_x = std::numeric_limits<double>::infinity();
+        double bb_max_x = -std::numeric_limits<double>::infinity();
+        double bb_min_y = std::numeric_limits<double>::infinity();
+        for (const auto& trap : traps) {
+            // 각 trapezoid 의 bottom/top 에서 left/right 좌표 추출
+            double yb = trap.y_bottom();
+            double yt = trap.y_top();
+            double xl_yb = trap.x_left(yb);
+            double xr_yb = trap.x_right(yb);
+            double xl_yt = trap.x_left(yt);
+            double xr_yt = trap.x_right(yt);
+            bb_min_x = std::min({bb_min_x, xl_yb, xl_yt});
+            bb_max_x = std::max({bb_max_x, xr_yb, xr_yt});
+            bb_min_y = std::min(bb_min_y, yb);
         }
 
-        double rep_x = insertion.x + max_x;
-        double rep_y = insertion.y + min_y;
+        // ★ insertion 기준점으로 rep 계산
+        double rep_x = insertion.x + (bb_max_x)*0.5;  // 바운딩 중심
+        double rep_y = insertion.y + bb_min_y;                    // shape 바닥
+
         double min_dist = std::numeric_limits<double>::infinity();
         for (auto& hole : instance_orig_.hole_hints()) {
           double d = std::hypot(hole.first - rep_x, hole.second - rep_y);
@@ -1462,9 +1419,18 @@ BranchingScheme::Node BranchingScheme::child_tmp(
 std::vector<std::shared_ptr<BranchingScheme::Node>> BranchingScheme::children(
         const std::shared_ptr<Node>& parent) const
 {
-    //if (parent->number_of_items == 20)
-    //    exit(0);
+    // 1) 모든 후보 생성
     insertions(parent);
+    // ////////////////////////////// debug code ////////////////////////////////
+    std::cout<<"[DEBUG] #candidates="<<parent->children_insertions.size()<<'\n';
+    for(auto& ins: parent->children_insertions)
+    std::cout<<"  cand x="<<ins.x<<" y="<<ins.y<<'\n';
+    // ////////////////////////////// debug code ////////////////////////////////
+
+    // //if (parent->number_of_items == 20)
+    // //    exit(0);
+    // insertions(parent);
+
     std::vector<std::shared_ptr<Node>> cs(parent->children_insertions.size());
     for (Counter i = 0; i < (Counter)parent->children_insertions.size(); ++i) {
         cs[i] = std::make_shared<Node>(child_tmp(parent, parent->children_insertions[i]));
@@ -1488,6 +1454,7 @@ std::vector<std::shared_ptr<BranchingScheme::Node>> BranchingScheme::children(
 void BranchingScheme::insertions(
         const std::shared_ptr<Node>& parent) const
 {
+    parent->children_insertions.clear();
     uncovered_trapezoids_cur_.clear();
     if (parent->number_of_bins > 0) {
         BinTypeId bin_type_id = instance().bin_type_id(parent->number_of_bins - 1);
@@ -1605,6 +1572,66 @@ void BranchingScheme::insertions(
         }
     }
 
+    // ////////////////////////////// candidiate enforce //////////////////////////////
+    // if (parent->number_of_items == 1) {
+    //     // hole 힌트 꺼내기
+    //     auto [hx, hy] = instance().hole_hints().front();
+    //     // 현재 방향의 trapezoid_sets
+    //     const auto& sets =
+    //         directions_data_[(int)parent->last_bin_direction].trapezoid_sets;
+
+    //     for (TrapezoidSetId tsid : valid_trapezoid_set_ids) {
+    //         if (sets[tsid].item_type_id != 1) continue;
+
+    //         // 바운딩 박스 산출
+    //         const auto& traps = sets[tsid].shapes[0];  // shape_pos=0 하나만 예시
+    //         double bb_min_x = +1e30, bb_max_x = -1e30, bb_min_y = +1e30;
+    //         for (auto& trap : traps) {
+    //             double yb = trap.y_bottom(), yt = trap.y_top();
+    //             double xl_yb = trap.x_left(yb),  xr_yb = trap.x_right(yb);
+    //             double xl_yt = trap.x_left(yt),  xr_yt = trap.x_right(yt);
+    //             bb_min_x = std::min({bb_min_x, xl_yb, xl_yt});
+    //             bb_max_x = std::max({bb_max_x, xr_yb, xr_yt});
+    //             bb_min_y = std::min(bb_min_y, yb);
+    //         }
+    //         double width = bb_max_x - bb_min_x;
+
+    //         // **여기** uncovered_trapezoid_pos 로 가능한 모든 슬롯을 시도
+    //         for (ItemPos ut = 0; ut < (ItemPos)parent->uncovered_trapezoids.size(); ++ut) {
+    //             Insertion holeIns;
+
+    //             holeIns.trapezoid_set_id        = tsid;
+    //             holeIns.item_shape_pos          = 0;    // variant index
+    //             holeIns.item_shape_trapezoid_pos= 0;    // single-trap 폴리곤
+    //             holeIns.new_bin_direction       = Direction::Any;
+
+    //             // ★ Must set these two, otherwise child_tmp will skip or crash
+    //             holeIns.uncovered_trapezoid_pos = ut;
+    //             holeIns.extra_trapezoid_pos     = -1;
+
+    //             // 위치 계산: bounding-center / 바닥이 hole 좌표에 오도록
+    //             holeIns.x  = hx - (bb_min_x + width*0.5);
+    //             holeIns.y  = hy - bb_min_y;
+    //             holeIns.ys = hy;
+    //             holeIns.ye = hy;
+
+    //             parent->children_insertions.push_back(holeIns);
+    //         }
+    //     }
+    // }
+    // ////////////////////////////// candidiate enforce //////////////////////////////
+    if (parent->number_of_items == 1) {
+        const auto& sets =
+            directions_data_[(int)parent->last_bin_direction].trapezoid_sets;
+        std::vector<Insertion> forced;
+        for (auto& ins : parent->children_insertions) {
+            // item_type_id==1(두 번째 폴리곤) 만 남기기
+            if (sets[ins.trapezoid_set_id].item_type_id == 1)
+                forced.push_back(ins);
+        }
+        parent->children_insertions.swap(forced);
+    }
+    //////////////////
     // Insert in a new bin.
     if (parent->children_insertions.empty() && parent->number_of_bins < instance().number_of_bins()) {
         //std::cout << "insert in a new bin" << std::endl;
@@ -2386,7 +2413,7 @@ bool BranchingScheme::better(
     
         // 혼합 점수 계산 (가중치는 필요에 따라 조정 가능)
         double alpha = 1.0;   // ye_max 쪽 가중치
-        double beta = 1000.0;    // insertion score 쪽 가중치
+        double beta = 1e9;    // insertion score 쪽 가중치
     
         double final_score_1 = -alpha * score1 + beta * insertion_avg_1;
         double final_score_2 = -alpha * score2 + beta * insertion_avg_2;
